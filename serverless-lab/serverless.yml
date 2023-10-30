@@ -1,0 +1,18 @@
+service: serverless-lab
+
+provider:
+  name: aws
+  runtime: python3.7
+  lambdaHashingVersion: 20201221
+  region: eu-west-1
+  timeout: 10 # You set a timeout of 10 seconds for the functions
+  role: arn:aws:iam::155318317806:role/serverlessLabs # Enter your Arn role here
+  memorySize: 512
+
+functions:
+  first_function:
+    handler: handler.first_function
+    events:
+    - http:
+        path: first
+        method: get  
