@@ -4,9 +4,10 @@ provider:
   name: aws
   runtime: python3.7
   lambdaHashingVersion: 20201221
-  region: eu-west-1
+  region: ap-south-1
+  # profile: personalCaesarAcc
   timeout: 10 # You set a timeout of 10 seconds for the functions
-  role: arn:aws:iam::155318317806:role/serverlessLabs # Enter your Arn role here
+  role: arn:aws:iam::627768693377:role/serverlessLabs # Enter your Arn role here
   memorySize: 512
 
 functions:
