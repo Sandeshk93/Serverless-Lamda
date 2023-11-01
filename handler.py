@@ -1,1 +1,1 @@
-from functions.first_function import first_function
+from functions.first_function import main
