@@ -11,37 +11,9 @@ provider:
   memorySize: 512
 
 functions:
-  getAverageBasketSize:
+  first_function:
     handler: handler.main
     events:
       - http:
-          path: getAverageBasketSize
-          method: post
-
-  getAverageSizeForDay:
-    handler: handler.main
-    events:
-      - http:
-          path: getAverageSizeForDay
-          method: post
-
-  getHourlyAverageSizeForDay:
-    handler: handler.main
-    events:
-      - http:
-          path: getHourlyAverageSizeForDay
-          method: post
-
-  getAverageSizeForDepartment:
-    handler: handler.main
-    events:
-      - http:
-          path: getAverageSizeForDepartment
-          method: post
-
-  getAverageSizeDepartmentWise:
-    handler: handler.main
-    events:
-      - http:
-          path: getAverageSizeDepartmentWise
-          method: post
+          path: /user-details
+          method: POST
