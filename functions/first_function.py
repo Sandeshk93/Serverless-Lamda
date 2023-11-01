@@ -1,93 +1,37 @@
-import os
 import json
 from mysql.connector import connect
 from mysql import connector
+from omni.core.cache import get_config, get_service_token, get_fine_grain
+from omni.core.utils import check_cold, keep_warm
 
 
-def GetConnection():
+def GetConnection(host, port, user, passwd, db):
     conn = None
-    conn = connector.connect(
-        host=os.environ.get("TLOG_DB_HOST"),
-        user=os.environ.get("TLOG_DB_USER"),
-        passwd=os.environ.get("TLOG_DB_PASS"),
-        port=3306,
-        db="tlog_dashboard_db")
+    conn = connector.connect(host=host,
+                             port=port, user=user, passwd=passwd,
+                             db=db)
     return conn
 
 
-def GetAverageBasketSizeForWeek(cursor, TransactionDate, storeNumber, ReportType):
-    proc = ""
-    result = []
-    proc = "tlog_dashboard_db.sp_BasketSize_getWeekly_read"
-    args = (storeNumber, TransactionDate, ReportType)
-    result = executeGet(proc, args, cursor)
-    return result
-
-
-def GetAverageSizeForDay(cursor, TransactionDate, storeNumber, ReportType):
+def GetUserDetails(cursor, UserEmailAddress, config):
     proc = ""
     result = []
 
-    proc = "tlog_dashboard_db.sp_get_TotalAverageBasketSize_read"
-    args = (TransactionDate, storeNumber, ReportType)
+    proc = config["sp_get_userdetails"]
+    args = ('', UserEmailAddress)
 
     result = executeGet(proc, args, cursor)
-    print(result)
-    return result
-
-
-def GetHourlyAverageSizeForDay(cursor, TransactionDate, storeNumber, ReportType):
-    proc = ""
-    result = []
-
-    proc = 'tlog_dashboard_db.sp_hourlyBasketSize_get_read'
-    args = (storeNumber, TransactionDate, ReportType)
-
-    result = executeGet(proc, args, cursor)
-
-    return result
-
-
-def GetAverageSizeForDepartment(cursor, TransactionDate, storeNumber):
-    proc = ""
-    result = []
-    response = []
-
-    proc = "tlog_dashboard_db.sp_DeptAvgBasketSize_get_read"
-
-    args = (storeNumber, TransactionDate)
-    print(args)
-
-    result = executeGet(proc, args, cursor)
-    print(result)
-
-    return result
-
-
-def GetAverageSizeDepartmentWise(cursor, TransactionDate, storeNumber):
-    proc = ""
-    result = []
-    response = []
-
-    proc = "tlog_dashboard_db.sp_DeptWiseBasketSize_get_read"
-
-    args = (storeNumber, TransactionDate)
-
-    result = executeGet(proc, args, cursor)
-
     return result
 
 
 def executeGet(proc, args, cursor):
     try:
         result = []
-        print("78", proc)
-        cursor.callproc(str(proc), args)
+        cursor.callproc(proc, args)
         for result in cursor.stored_results():
             dataset = result.fetchall()
             columns = result.description
         result = []
-        print("83", dataset)
         for value in dataset:
 
             tmp = {}
@@ -101,106 +45,59 @@ def executeGet(proc, args, cursor):
     return result
 
 
-def GetTotalAvgBasketSize1(cursor, TransactionDate, param, Filter):
-    proc = ""
-    result = []
-    if Filter == 'Day':
-        proc = 'tlog_dashboard_db.sp_get_TotalAverageBasketSize_read'
-    if Filter == 'Week':
-        proc = 'tlog_dashboard_db.sp_get_TotalAvgBasketSizeWeekly_read'
-    if Filter == 'Month':
-        proc = 'tlog_dashboard_db.sp_get_TotalAvgBasketSizeMonthly_read'
-    args = (param, TransactionDate)
-    result = executeGet(proc, args, cursor)
-    return result
-
-
-def GetTotalAvgBasketSizeBanner(cursor, TransactionDate, param, Filter):
-    proc = ""
-    result = []
-    if Filter == 'Day':
-        proc = 'tlog_dashboard_db.sp_get_TotalAvgBasketSizeForBanner_read'
-    if Filter == 'Week':
-        proc = 'tlog_dashboard_db.sp_get_TotalBasketSizeWeeklyBanner_read'
-    if Filter == 'Month':
-        proc = 'tlog_dashboard_db.sp_get_TotalBasketSizeMonthlyBanner_read'
-    # proc =spName
-    args = (param, TransactionDate)
-    result = executeGet(proc, args, cursor)
-    return result
-
-
 def main(event, context):
-    conn = GetConnection()
-    cursor = conn.cursor()
+    # Cold start / keep warm
+    check_cold()
+    if keep_warm(event):
+        return
     Result = []
     GrossSales = []
     HourlySales = []
+    error_return_code = '1'
 
+    try:
+        # Get config
+        config = get_config(
+            function_name=context.function_name,
+            banner="all")
+
+    except Exception as e:
+        print(f"Error: Unable to load config - {e}")
+        return {
+            "return_code": error_return_code,
+            "return_message": f"Error: Unable to load config - {e}"
+        }
+    else:
+        try:
+            # Fine grain authorization
+            get_fine_grain(
+                client_id=event["oauth_client_name"],
+                host_name=event["host_name"],
+                url_fragment=event["url_fragment"],
+                http_method=event["http_method"],
+                retries=config["fine_grain_retry_times"],
+                backoff=config["fine_grain_backoff_delay"]
+            )
+        except Exception as e:
+            # Return system and user errors
+            print("Error: Fine grain auth exception - ", e)
+            return {
+                "return_code": error_return_code,
+                "return_message": "Error: An error occurred during fine grain authentication."
+            }
+
+    conn = GetConnection(host=config["tlog_replica_host"], port=config["tlog_replica_port"],
+                         user=config["tlog_replica_username"], passwd=config["tlog_replica_password"],
+                         db=config["tlog_replica_database"])
+    cursor = conn.cursor()
     if event is not None:
-        TransactionDate = event["TransactionDate"]
-        storeNumber = event["StoreNumber"]
-        ReportType = event["ReportType"]
-        Type = event["Type"]
-        param = storeNumber
-        AverageBasketSize = []
+        UserEmailAddress = event["UserEmailAddress"]
+        UserPassword = event["UserPassword"]
 
-        Filter = event["Filter"]
-        spName = ''
-        if (Filter == 'Department'):
-            AverageBasketSize = GetAverageSizeForDepartment(cursor, TransactionDate, storeNumber)
-            DepartmentWiseBasketSize = GetAverageSizeDepartmentWise(cursor, TransactionDate, storeNumber)
+    UserDetails = GetUserDetails(cursor, UserEmailAddress, config)
 
-            Result.append({"AvgBasketSize": AverageBasketSize,
-                           "DepartmentWiseBasketSize": DepartmentWiseBasketSize
-                           })
-
-        if (Type == 'Total'):
-            if (Filter == 'Day'):
-                if storeNumber is not None and storeNumber != '':
-                    # spName = 'tlog_dashboard_db.sp_get_TotalAverageBasketSize_read'
-                    try:
-                        AverageBasketSize = GetTotalAvgBasketSize1(cursor, TransactionDate, param, Filter)
-                    except Exception as e:
-                        return e
-                else:
-                    if "Banner" in event:
-                        param = event["Banner"]
-                        AverageBasketSize = GetTotalAvgBasketSizeBanner(cursor, TransactionDate, param, Filter)
-
-            if (Filter == 'Week'):
-                if storeNumber is not None and storeNumber != '':
-                    AverageBasketSize = GetTotalAvgBasketSize1(cursor, TransactionDate, param, Filter)
-                else:
-                    if "Banner" in event and event["Banner"] is not None:
-                        param = event["Banner"]
-                        AverageBasketSize = GetTotalAvgBasketSizeBanner(cursor, TransactionDate, param, Filter)
-
-            if (Filter == 'Month'):
-                if storeNumber is not None and storeNumber != '':
-                    AverageBasketSize = GetTotalAvgBasketSize1(cursor, TransactionDate, param, Filter)
-                else:
-                    if "Banner" in event and event["Banner"] is not None:
-                        param = event["Banner"]
-                        AverageBasketSize = GetTotalAvgBasketSizeBanner(cursor, TransactionDate, param, Filter)
-
-            Result.append({"AvgBasketSize": AverageBasketSize
-                           })
-        else:
-            if (Filter == 'Day'):
-                AverageBasketSize = GetAverageSizeForDay(cursor, TransactionDate, storeNumber, ReportType)
-                HourlyBasketSize = GetHourlyAverageSizeForDay(cursor, TransactionDate, storeNumber, ReportType)
-
-                Result.append({"AvgBasketSize": AverageBasketSize,
-                               "HourlyBasketSize": HourlyBasketSize
-                               })
-            if (Filter == 'Week'):
-                AverageBasketSize = GetAverageBasketSizeForWeek(cursor, TransactionDate, storeNumber, ReportType)
-                DepartmentWiseBasketSize = GetAverageSizeDepartmentWise(cursor, TransactionDate, storeNumber)
-
-                Result.append({"AvgBasketSize": AverageBasketSize,
-                               "DepartmentWiseBasketSize": DepartmentWiseBasketSize
-                               })
+    Result.append({"UserDetails": UserDetails
+                   })
 
     conn.close()
 
