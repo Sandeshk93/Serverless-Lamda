@@ -12,8 +12,14 @@ provider:
 
 functions:
   first_function:
-    handler: handler.main
+    handler: handler.first_function
     events:
       - http:
-          path: /user-details
-          method: POST
+          path: /first
+          method: get
+  second_function:
+    handler: handler.second_function
+    events:
+      - http:
+          path: /second
+          method: post
