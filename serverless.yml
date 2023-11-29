@@ -1,4 +1,4 @@
-service: serverless-lab
+service: DEV-TLogExternal-v1
 
 provider:
   name: aws
