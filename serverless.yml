@@ -17,9 +17,9 @@ functions:
       - http:
           path: /first
           method: get
-  second_function:
+  DEV-TLogExternal-v1:
     handler: handler.second_function
     events:
       - http:
-          path: /second
+          path: /store/sftp-creds
           method: post
