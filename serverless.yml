@@ -21,5 +21,5 @@ functions:
     handler: handler.second_function
     events:
       - http:
-          path: /store/sftp-creds
+          path: /store
           method: post
