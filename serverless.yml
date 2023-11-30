@@ -17,7 +17,7 @@ functions:
       - http:
           path: /first
           method: get
-  DEV-TLogExternal-v1:
+  Second_function:
     handler: handler.second_function
     events:
       - http:
