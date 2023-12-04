@@ -5,6 +5,7 @@ provider:
   runtime: python3.7
   lambdaHashingVersion: 20201221
   region: ap-south-1
+  stage: lab
   # profile: personalCaesarAc
   timeout: 10 # You set a timeout of 10 seconds for the functions
   #role: arn:aws:iam::627768693377:role/serverlessLabs # Enter your Arn role here
