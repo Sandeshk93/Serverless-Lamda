@@ -12,7 +12,7 @@ provider:
 
 functions:
   first_function:
-    handler: handler.first_function
+    handler: handler.first_function123
     events:
       - http:
           path: /first
